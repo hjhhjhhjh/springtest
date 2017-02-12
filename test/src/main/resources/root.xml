@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:p="http://www.springframework.org/schema/p"  
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+	   	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+	   	http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+       	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd ">
+
+	<!-- 加载配置文件 -->
+	<context:property-placeholder ignore-unresolvable="true" location="classpath*:*.properties" />
+
+	<!-- 使用disconf必须添加以下配置 -->
+	<bean id="disconfMgrBean" class="com.baidu.disconf.client.DisconfMgrBean" destroy-method="destroy">
+	    <property name="scanPackage" value="com.frontpay.oas.openapi.disconf.config"/>
+	</bean>
+	
+	<bean id="disconfMgrBean2" class="com.baidu.disconf.client.DisconfMgrBeanSecond" init-method="init" destroy-method="destroy">
+	</bean>
+	<!-- 使用托管方式的disconf配置(无代码侵入, 配置更改会自动reload)-->
+	<bean id="configproperties_disconf"
+	      class="com.baidu.disconf.client.addons.properties.ReloadablePropertiesFactoryBean">
+	    <property name="locations">
+	        <list>
+	            <value>classpath:/jdbc.properties</value>
+	            <value>classpath:/config.properties</value>
+	            <value>classpath:/log4j.properties</value>
+	            <value>classpath:/redis.yaml</value>
+	            <value>classpath:/spring-cache.yaml</value>
+	        </list>
+	    </property>
+	</bean>
+	
+	
+	<bean id="propertyConfigurer"
+	      class="com.baidu.disconf.client.addons.properties.ReloadingPropertyPlaceholderConfigurer">
+	    <property name="ignoreResourceNotFound" value="true" />
+	    <property name="ignoreUnresolvablePlaceholders" value="true" />
+	    <property name="propertiesArray">
+	        <list>
+	            <ref bean="configproperties_disconf"/>
+	        </list>
+	    </property>
+	</bean>
+	
+
+	<!-- 添加对Annotation的支持 -->
+	<context:annotation-config />
+	<!-- 自动扫描 -->
+	<context:component-scan base-package="com.frontpay.oas.openapi.service,com.frontpay.redis" />
+	<!-- 激活自动代理功能 -->
+	<aop:aspectj-autoproxy proxy-target-class="true" />
+
+
+	<!-- 配置管理后台数据源 -->
+	<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource"
+		init-method="init" destroy-method="close">
+		<property name="driverClassName" value="${jdbc.driverClassName}" />
+		<property name="url" value="${jdbc.management.url}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />
+		<property name="testWhileIdle" value="true" />
+		<property name="validationQuery" value="select 1" />
+	</bean>
+
+
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="mapperLocations">
+			<array>
+				<value>classpath:mapper/*.xml</value>
+			</array>
+		</property>
+		<property name="typeAliasesPackage" value="com.frontpay.oas.openapi.entity,com.frontpay.oas.entity.management" />
+		<property name="plugins">
+			<array>
+				<bean class="com.github.pagehelper.PageHelper">
+					<property name="properties">
+						<value>
+							dialect=SqlServer
+							reasonable=true
+						</value>
+					</property>
+				</bean>
+			</array>
+		</property>
+	</bean>
+
+	<bean class="tk.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" />
+		<property name="basePackage" value="com.frontpay.oas.openapi.mapper,com.frontpay.oas.mapper.management"></property>
+		<property name="properties">
+			<value>
+				mappers=com.frontpay.oas.openapi.base.MSSQLMapper
+			</value>
+		</property>
+	</bean>
+	<!-- 添加声明式事务支持 -->
+	<bean id="txManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+ 
+</beans>
